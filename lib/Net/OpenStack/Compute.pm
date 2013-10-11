@@ -203,6 +203,86 @@ sub get_flavor {
     return from_json($res->content)->{flavor};
 }
 
+## VMS actions
+
+# Launch a clone from a live image.
+#
+# Allowed params:
+#
+# 'name': Name of new server
+# 'guest': Hash of guest parameters
+# 'security_groups': List of security groups
+# 'availability_zone': Nova availability zone
+# 'scheduler_hints': Scheduler hints
+# 'num_instances': Number of instances to launch
+# 'key_name': Name of keypair
+# 'user_data': base64 encoded user data
+sub live_image_start {
+    my ($self, $live_image, $data) = @_;
+    croak "live image id is required" unless $live_image;
+    croak "invalid data" unless $data and 'HASH' eq ref $data;
+    my $res = $self->_action($live_image, gc_launch => $data);
+    return from_json($res->content)->{servers};
+}
+
+# Create a new live image from a server.
+#
+# Allowed params:
+#
+# 'name': Name of live image. If not given, a
+#         name will be auto-generated from the
+#         name of the server.
+sub live_image_create {
+    my ($self, $server , $data) = @_;
+    croak "server id is required" unless $server;
+    croak "invalid data" unless $data and 'HASH' eq ref $data;
+    my $res = $self->_action($server, gc_bless => $data);
+    return from_json($res->content)->{servers};
+}
+
+# Discard a live image
+#
+sub live_image_delete {
+    my ($self, $live_image) = @_;
+    croak "live image id is required" unless $live_image;
+    my $res = $self->_action($live_image, gc_discard => {});
+    return _check_res($res);
+}
+
+# Migrate a VM, using VMS
+#
+# Allowed params:
+#
+# 'dest': Name of host to migrate to, as reported
+#         by nova host-list.
+sub live_migrate {
+    my ($self, $live_image, $data) = @_;
+    croak "live image id is required" unless $live_image;
+    croak "invalid data" unless $data and 'hash' eq ref $data;
+    my $res = $self->_action($live_image, gc_migrate => $data);
+    return _check_res($res);
+}
+
+# List servers launched from a live image
+#
+sub list_launched {
+    my ($self, $live_image) = @_;
+    croak "live image id is required" unless $live_image;
+    my $res = $self->_action($live_image, gc_list_launched => {});
+    return from_json($res->content)->{servers};
+}
+
+# List live images for a server
+#
+sub list_blessed {
+    my ($self, $server) = @_;
+    croak "server id is required" unless $server;
+    my $res = $self->_action($server, gc_list_blessed => {});
+    return from_json($res->content)->{servers};
+}
+
+## End VMS actions
+
 sub _url {
     my ($self, $path, $is_detail, $query) = @_;
     my $url = $self->base_url . $path;
